@@ -64,7 +64,7 @@ void loop() {
       break;    
     }
     activeColorCombo++;
-    activeColorCombo = activeColorCombo == colorCombos ? 0 : activeColorCombo;
+    activeColorCombo = activeColorCombo > colorCombos ? 0 : activeColorCombo;
     lastColorChange = millis();
     Serial.print("Color changed to set: ");
     Serial.println(activeColorCombo);
