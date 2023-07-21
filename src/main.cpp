@@ -3,13 +3,13 @@
 
 #define LED_PIN     15
 #define NUM_LEDS    120
-#define BRIGHTNESS  50
+#define BRIGHTNESS  255
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
 CRGB leds[NUM_LEDS];
 
-CRGB primaryColor = CRGB::Blue;
-CRGB secondaryColor = CRGB::Red;
+CRGB primaryColor = CRGB::OrangeRed;
+CRGB secondaryColor = CRGB::OrangeRed;
 
 long colorChangeInterval = 5000;
 long lastColorChange;
@@ -27,6 +27,7 @@ extern const TProgmemPalette16 myRedWhiteBluePalette_p PROGMEM;
 int WrapLedNumber(int);
 int TranslateLedNumber(int);
 void SetColumn(int dot, CRGB color);
+void RotateColors();
 
 void setup() {
     Serial.begin(9600);
@@ -38,6 +39,36 @@ void setup() {
 }
 
 void loop() {
+  for(int dot = 0; dot < 30; dot++) 
+  {
+    SetColumn(dot, primaryColor);
+    SetColumn(dot + 1, primaryColor);
+    SetColumn(dot + 2, primaryColor);
+    SetColumn(dot + 3, primaryColor);
+    SetColumn(dot + 4, primaryColor);
+
+    SetColumn(dot + 16, secondaryColor);
+    SetColumn(dot + 17, secondaryColor);
+    SetColumn(dot + 18, secondaryColor);
+    SetColumn(dot + 19, secondaryColor);
+    SetColumn(dot + 20, secondaryColor);
+    
+    FastLED.show();
+    FastLED.delay(1000 / UPDATES_PER_SECOND);
+
+    SetColumn(dot, CRGB::Black);
+    // SetColumn(dot + 1, CRGB::Black);
+    // SetColumn(dot + 2, CRGB::Black);
+
+    SetColumn(dot + 16, CRGB::Black);
+    // SetColumn(dot + 17, CRGB::Black);
+    // SetColumn(dot + 18, CRGB::Black);
+    FastLED.show();
+  }
+}
+
+void RotateColors()
+{
   if(millis() - lastColorChange > colorChangeInterval)
   {
     switch (activeColorCombo)
@@ -68,33 +99,6 @@ void loop() {
     lastColorChange = millis();
     Serial.print("Color changed to set: ");
     Serial.println(activeColorCombo);
-  }
-
-  for(int dot = 0; dot < 30; dot++) 
-  {
-    SetColumn(dot, primaryColor);
-    SetColumn(dot + 1, primaryColor);
-    SetColumn(dot + 2, primaryColor);
-    SetColumn(dot + 3, primaryColor);
-    SetColumn(dot + 4, primaryColor);
-
-    SetColumn(dot + 16, secondaryColor);
-    SetColumn(dot + 17, secondaryColor);
-    SetColumn(dot + 18, secondaryColor);
-    SetColumn(dot + 19, secondaryColor);
-    SetColumn(dot + 20, secondaryColor);
-    
-    FastLED.show();
-    FastLED.delay(1000 / UPDATES_PER_SECOND);
-
-    SetColumn(dot, CRGB::Black);
-    // SetColumn(dot + 1, CRGB::Black);
-    // SetColumn(dot + 2, CRGB::Black);
-
-    SetColumn(dot + 16, CRGB::Black);
-    // SetColumn(dot + 17, CRGB::Black);
-    // SetColumn(dot + 18, CRGB::Black);
-    FastLED.show();
   }
 }
 
