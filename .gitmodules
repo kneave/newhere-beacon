@@ -1,0 +1,3 @@
+[submodule "lib/newhere-espnow-lib"]
+	path = lib/newhere-espnow-lib
+	url = git@github.com:kneave/newhere-espnow-lib.git

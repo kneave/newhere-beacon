@@ -1,13 +1,23 @@
 #include <Arduino.h>
 #include <FastLED.h>
+#include <esp_now.h>
+#include <WiFi.h>
+#include "structs.cpp"
+
+Joystick_Msg joy_msg;
+Power_Msg power_msg;
+Position_Msg position_msg;
+
+uint8_t remote_mac[] = {0x7C, 0xDF, 0xA1, 0x15, 0x30, 0x86};
+#define ESP_CHANNEL 0
 
 #define LED_PIN     15
 #define NUM_LEDS    120
-#define BRIGHTNESS  255
+#define BRIGHTNESS  5
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
-CRGB leds[NUM_LEDS];
 
+CRGB leds[NUM_LEDS];
 CRGB primaryColor = CRGB::OrangeRed;
 CRGB secondaryColor = CRGB::OrangeRed;
 
@@ -28,14 +38,29 @@ int WrapLedNumber(int);
 int TranslateLedNumber(int);
 void SetColumn(int dot, CRGB color);
 void RotateColors();
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len);
 
 void setup() {
-    Serial.begin(9600);
-    delay( 500 ); // power-up safety delay
-    FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
-    FastLED.setBrightness(  BRIGHTNESS );
-    
-    lastColorChange = millis();
+  Serial.begin(115200);
+  delay(500); // power-up safety delay
+
+  FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
+  FastLED.setBrightness(  BRIGHTNESS );
+
+  lastColorChange = millis();
+
+  // Set device as a Wi-Fi Station
+  WiFi.mode(WIFI_STA);
+
+  // Init ESP-NOW
+  if (esp_now_init() != ESP_OK) {
+    Serial.println("Error initializing ESP-NOW");
+    return;
+  }
+  
+  // Once ESPNow is successfully Init, we will register for recv CB to
+  // get recv packer info
+  esp_now_register_recv_cb(OnDataRecv);
 }
 
 void loop() {
@@ -57,12 +82,7 @@ void loop() {
     FastLED.delay(1000 / UPDATES_PER_SECOND);
 
     SetColumn(dot, CRGB::Black);
-    // SetColumn(dot + 1, CRGB::Black);
-    // SetColumn(dot + 2, CRGB::Black);
-
     SetColumn(dot + 16, CRGB::Black);
-    // SetColumn(dot + 17, CRGB::Black);
-    // SetColumn(dot + 18, CRGB::Black);
     FastLED.show();
   }
 }
@@ -137,4 +157,22 @@ int TranslateLedNumber(int input)
   }
 
   return output;
+}
+
+// callback function that will be executed when data is received
+void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
+  memcpy(&joy_msg, incomingData, sizeof(joy_msg));
+  Serial.print("Bytes received: ");
+  Serial.println(len);
+  Serial.print("Timestamp: ");
+  Serial.println(joy_msg.timestamp);
+  Serial.print("C: ");
+  Serial.println(joy_msg.c);
+  Serial.print("Z: ");
+  Serial.println(joy_msg.z);
+  Serial.print("X: ");
+  Serial.println(joy_msg.x);
+  Serial.print("Y: ");
+  Serial.println(joy_msg.y);
+  Serial.println();
 }
