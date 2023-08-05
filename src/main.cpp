@@ -40,6 +40,9 @@ void SetColumn(int dot, CRGB color);
 void RotateColors();
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len);
 
+long lastJoyMsg = -1;
+long lastPosMsg = -1;
+
 void setup() {
   Serial.begin(115200);
   delay(500); // power-up safety delay
@@ -161,18 +164,56 @@ int TranslateLedNumber(int input)
 
 // callback function that will be executed when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  memcpy(&joy_msg, incomingData, sizeof(joy_msg));
-  Serial.print("Bytes received: ");
-  Serial.println(len);
-  Serial.print("Timestamp: ");
-  Serial.println(joy_msg.timestamp);
-  Serial.print("C: ");
-  Serial.println(joy_msg.c);
-  Serial.print("Z: ");
-  Serial.println(joy_msg.z);
-  Serial.print("X: ");
-  Serial.println(joy_msg.x);
-  Serial.print("Y: ");
-  Serial.println(joy_msg.y);
-  Serial.println();
+  int joyInt;
+  int posInt;
+
+  switch(len)
+  {
+    case sizeof(Joystick_Msg):
+      memcpy(&joy_msg, incomingData, sizeof(joy_msg));      
+      // Serial.print("Bytes received: ");
+      // Serial.println(len);
+      // Serial.print("Timestamp: ");
+      // Serial.println(joy_msg.timestamp);
+      // Serial.print("C: ");
+      // Serial.println(joy_msg.c);
+      // Serial.print("Z: ");
+      // Serial.println(joy_msg.z);
+      // Serial.print("X: ");
+      // Serial.println(joy_msg.x);
+      // Serial.print("Y: ");
+      // Serial.println(joy_msg.y);
+      // Serial.println();
+
+      // joyInt = millis() - lastJoyMsg;
+      // lastJoyMsg = millis();
+      // Serial.print(1000 / joyInt);
+      // Serial.println("Hz, Joy");
+
+      break;
+
+    case sizeof(Position_Msg):
+      memcpy(&position_msg, incomingData, sizeof(position_msg));
+      // Serial.print("Bytes received: ");
+      // Serial.println(len);
+      Serial.print("Unix Time: ");
+      Serial.println(position_msg.unixtime);
+      Serial.print("Lat: ");
+      Serial.println(String(position_msg.lat, 7));
+      Serial.print("Lon: ");
+      Serial.println(String(position_msg.lon, 7));
+      Serial.print("Alt: ");
+      Serial.println(position_msg.alt);
+      Serial.print("Acc: ");
+      Serial.println(position_msg.acc);
+      Serial.print("RTK: ");
+      Serial.println(position_msg.rtk);
+      Serial.println();
+
+      // posInt = millis() - lastPosMsg;
+      // lastPosMsg = millis();
+      // Serial.print(posInt);
+      // Serial.println("ms, Pos");
+      break;
+  }
 }
