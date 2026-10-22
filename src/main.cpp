@@ -2,7 +2,7 @@
 #include <FastLED.h>
 #include <esp_now.h>
 #include <WiFi.h>
-#include "structs.cpp"
+#include <newhere-espnow-lib.h>
 
 Joystick_Msg joy_msg;
 Power_Msg power_msg;
@@ -45,12 +45,34 @@ long lastPosMsg = -1;
 
 volatile bool joyDataReady = false;
 volatile bool posDataReady = false;
+volatile bool powerDataReady = false;
 
 bool MSG_DEBUG = false;
+
+// Serial link to the Teensy 4.1 (UART1: TX=GPIO5, RX=GPIO16 on the QT Py)
+#define TEENSY_BAUD 115200
+
+SerialFrameReceiver teensyRx;
+
+void pollTeensySerial() {
+  while (Serial1.available()) {
+    uint16_t len = teensyRx.feed(Serial1.read());
+    if (len == 0) {
+      continue;
+    }
+
+    if (len == sizeof(Power_Msg)) {
+      memcpy(&power_msg, teensyRx.payload(), sizeof(Power_Msg));
+      powerDataReady = true;
+    }
+  }
+}
 
 void setup() {
   Serial.begin(115200);
   delay(500); // power-up safety delay
+
+  Serial1.begin(TEENSY_BAUD, SERIAL_8N1, RX, TX);
 
   FastLED.addLeds<LED_TYPE, LED_PIN, COLOR_ORDER>(leds, NUM_LEDS).setCorrection( TypicalLEDStrip );
   FastLED.setBrightness(  BRIGHTNESS );
@@ -141,6 +163,19 @@ void loop() {
       Serial.println();
     }
   }
+
+  if (powerDataReady) {
+    powerDataReady = false;
+    if (MSG_DEBUG) {
+      Serial.print("Voltage: ");
+      Serial.println(power_msg.voltage);
+      Serial.print("Current: ");
+      Serial.println(power_msg.current);
+      Serial.println();
+    }
+  }
+
+  pollTeensySerial();
 
   while (Serial.available()) {
     char inChar = (char)Serial.read();
@@ -244,8 +279,10 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
   if (len == sizeof(Joystick_Msg)) {
     memcpy(&joy_msg, incomingData, sizeof(joy_msg));
     joyDataReady = true;
+    sendSerialFrame(Serial1, &joy_msg, sizeof(joy_msg));  // forward to Teensy
   } else if (len == sizeof(Position_Msg)) {
     memcpy(&position_msg, incomingData, sizeof(position_msg));
     posDataReady = true;
+    sendSerialFrame(Serial1, &position_msg, sizeof(position_msg));  // forward to Teensy
   }
 }
