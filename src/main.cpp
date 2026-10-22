@@ -11,8 +11,8 @@ Position_Msg position_msg;
 uint8_t remote_mac[] = {0x7C, 0xDF, 0xA1, 0x15, 0x30, 0x86};
 #define ESP_CHANNEL 0
 
-#define LED_PIN     15
-#define NUM_LEDS    120
+#define LED_PIN     GPIO_NUM_35
+#define NUM_LEDS    8 * 32
 #define BRIGHTNESS  5
 #define LED_TYPE    WS2812B
 #define COLOR_ORDER GRB
@@ -43,6 +43,11 @@ void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len);
 long lastJoyMsg = -1;
 long lastPosMsg = -1;
 
+volatile bool joyDataReady = false;
+volatile bool posDataReady = false;
+
+bool MSG_DEBUG = false;
+
 void setup() {
   Serial.begin(115200);
   delay(500); // power-up safety delay
@@ -66,6 +71,9 @@ void setup() {
   esp_now_register_recv_cb(OnDataRecv);
 }
 
+
+String inputString = "";
+
 void loop() {
   for(int dot = 0; dot < 30; dot++) 
   {
@@ -87,6 +95,76 @@ void loop() {
     SetColumn(dot, CRGB::Black);
     SetColumn(dot + 16, CRGB::Black);
     FastLED.show();
+  }
+
+  if (joyDataReady) {
+    joyDataReady = false;
+    if (MSG_DEBUG) {
+      Serial.print("Bytes received: ");
+      Serial.println(sizeof(Joystick_Msg));
+      Serial.print("Timestamp: ");
+      Serial.println(joy_msg.timestamp);
+      Serial.print("C: ");
+      Serial.println(joy_msg.c);
+      Serial.print("Z: ");
+      Serial.println(joy_msg.z);
+      Serial.print("X: ");
+      Serial.println(joy_msg.x);
+      Serial.print("Y: ");
+      Serial.println(joy_msg.y);
+      Serial.println();
+
+      long joyInt = millis() - lastJoyMsg;
+      lastJoyMsg = millis();
+      if (joyInt > 0) {
+        Serial.print(1000 / joyInt);
+        Serial.println("Hz, Joy");
+      }
+    }
+  }
+
+  if (posDataReady) {
+    posDataReady = false;
+    if (MSG_DEBUG) {
+      Serial.print("Unix Time: ");
+      Serial.println(position_msg.unixtime);
+      Serial.print("Lat: ");
+      Serial.println(String(position_msg.lat, 7));
+      Serial.print("Lon: ");
+      Serial.println(String(position_msg.lon, 7));
+      Serial.print("Alt: ");
+      Serial.println(position_msg.alt);
+      Serial.print("Acc: ");
+      Serial.println(position_msg.acc);
+      Serial.print("RTK: ");
+      Serial.println(position_msg.rtk);
+      Serial.println();
+    }
+  }
+
+  while (Serial.available()) {
+    char inChar = (char)Serial.read();
+    if (inChar == '\n') {
+      // Process the complete string here
+      inputString.trim();
+      Serial.println("Command received: " + inputString);
+          
+      if(inputString == "MAC")
+      {    
+        Serial.print("Board MAC Address: ");
+        Serial.println(WiFi.macAddress());
+      }
+      else if (inputString == "MSG_DEBUG")
+      {
+        MSG_DEBUG = !MSG_DEBUG;
+        Serial.print("MSG_DEBUG toggled to: ");
+        Serial.println(MSG_DEBUG ? "ON" : "OFF");
+      }
+    
+      inputString = ""; // Clear for next command
+    } else {
+      inputString += inChar;
+    }
   }
 }
 
@@ -162,58 +240,12 @@ int TranslateLedNumber(int input)
   return output;
 }
 
-// callback function that will be executed when data is received
 void OnDataRecv(const uint8_t * mac, const uint8_t *incomingData, int len) {
-  int joyInt;
-  int posInt;
-
-  switch(len)
-  {
-    case sizeof(Joystick_Msg):
-      memcpy(&joy_msg, incomingData, sizeof(joy_msg));      
-      // Serial.print("Bytes received: ");
-      // Serial.println(len);
-      // Serial.print("Timestamp: ");
-      // Serial.println(joy_msg.timestamp);
-      // Serial.print("C: ");
-      // Serial.println(joy_msg.c);
-      // Serial.print("Z: ");
-      // Serial.println(joy_msg.z);
-      // Serial.print("X: ");
-      // Serial.println(joy_msg.x);
-      // Serial.print("Y: ");
-      // Serial.println(joy_msg.y);
-      // Serial.println();
-
-      // joyInt = millis() - lastJoyMsg;
-      // lastJoyMsg = millis();
-      // Serial.print(1000 / joyInt);
-      // Serial.println("Hz, Joy");
-
-      break;
-
-    case sizeof(Position_Msg):
-      memcpy(&position_msg, incomingData, sizeof(position_msg));
-      // Serial.print("Bytes received: ");
-      // Serial.println(len);
-      Serial.print("Unix Time: ");
-      Serial.println(position_msg.unixtime);
-      Serial.print("Lat: ");
-      Serial.println(String(position_msg.lat, 7));
-      Serial.print("Lon: ");
-      Serial.println(String(position_msg.lon, 7));
-      Serial.print("Alt: ");
-      Serial.println(position_msg.alt);
-      Serial.print("Acc: ");
-      Serial.println(position_msg.acc);
-      Serial.print("RTK: ");
-      Serial.println(position_msg.rtk);
-      Serial.println();
-
-      // posInt = millis() - lastPosMsg;
-      // lastPosMsg = millis();
-      // Serial.print(posInt);
-      // Serial.println("ms, Pos");
-      break;
+  if (len == sizeof(Joystick_Msg)) {
+    memcpy(&joy_msg, incomingData, sizeof(joy_msg));
+    joyDataReady = true;
+  } else if (len == sizeof(Position_Msg)) {
+    memcpy(&position_msg, incomingData, sizeof(position_msg));
+    posDataReady = true;
   }
 }
